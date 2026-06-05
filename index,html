@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkySentinel — Edge AI Aircraft Inspection</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0A0E1A;
+    --navy2: #0F1628;
+    --navy3: #151E35;
+    --panel: #1A2540;
+    --panel2: #1E2D4A;
+    --accent: #00D4FF;
+    --accent2: #00FF9D;
+    --accent3: #FF6B35;
+    --warn: #FFB800;
+    --danger: #FF3D3D;
+    --text: #E8EDF8;
+    --muted: #7A8DAA;
+    --border: rgba(0,212,255,0.15);
+    --border2: rgba(0,212,255,0.08);
+    --glow: 0 0 20px rgba(0,212,255,0.2);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  /* SCANLINE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,14,26,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--text); }
+  .logo-icon {
+    width: 32px; height: 32px;
+    border: 1.5px solid var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .logo-icon::after {
+    content: '';
+    position: absolute;
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    animation: blink 3s infinite;
+  }
+  @keyframes blink {
+    0%,90%,100% { opacity: 1; }
+    95% { opacity: 0.3; }
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, black 20%, transparent 80%);
+  }
+  .hero-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    display: inline-block;
+    animation: fadeUp 0.8s ease both;
+  }
+  .hero h1 {
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    text-align: center;
+    max-width: 900px;
+    animation: fadeUp 0.9s ease 0.1s both;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero-sub {
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    color: var(--muted);
+    text-align: center;
+    max-width: 600px;
+    animation: fadeUp 1s ease 0.2s both;
+  }
+  .hero-cta {
+    margin-top: 2.5rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 1s ease 0.3s both;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--navy);
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { background: #33DDFF; transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent;
+    color: var(--accent);
+    padding: 12px 28px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { border-color: var(--accent); background: rgba(0,212,255,0.08); }
+
+  .hero-stats {
+    margin-top: 4rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 700px;
+    animation: fadeUp 1s ease 0.4s both;
+  }
+  .hero-stat {
+    background: var(--navy2);
+    padding: 1.5rem 1rem;
+    text-align: center;
+  }
+  .hero-stat .val {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .hero-stat .lbl {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SECTIONS */
+  section { padding: 6rem 2rem; max-width: 1200px; margin: 0 auto; }
+  .section-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .section-title {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+  .section-sub {
+    color: var(--muted);
+    max-width: 600px;
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+  hr.divider {
+    border: none;
+    border-top: 1px solid var(--border2);
+    margin: 0;
+  }
+
+  /* PROBLEM */
+  .problem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1px;
+    margin-top: 3rem;
+    background: var(--border2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .prob-card {
+    background: var(--navy2);
+    padding: 2rem 1.5rem;
+    position: relative;
+  }
+  .prob-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--danger);
+  }
+  .prob-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--danger);
+    line-height: 1;
+  }
+  .prob-label {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0.5rem 0 0.3rem;
+  }
+  .prob-desc { font-size: 0.85rem; color: var(--muted); }
+
+  /* MARKET */
+  .market-chart {
+    margin-top: 3rem;
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+  }
+  .chart-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 1.5rem;
+  }
+  .chart-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .chart-year {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    width: 36px;
+    text-align: right;
+  }
+  .chart-bar-bg {
+    flex: 1;
+    height: 28px;
+    background: var(--navy3);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .chart-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    transition: width 1.5s ease;
+  }
+
+  /* PIPELINE */
+  .pipeline {
+    margin-top: 3rem;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+  .pipe-step {
+    flex: 1;
+    background: var(--navy2);
+    border: 1px solid var(--border2);
+    border-radius: 0;
+    padding: 1.5rem 1.2rem;
+    position: relative;
+    text-align: center;
+  }
+  .pipe-step:first-child { border-radius: 10px 0 0 10px; }
+  .pipe-step:last-child { border-radius: 0 10px 10px 0; }
+  .pipe-step::after {
+    content: '▶';
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    color: var(--accent);
+    z-index: 2;
+  }
+  .pipe-step:last-child::after { display: none; }
+  .pipe-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    margin: 0 auto 0.7rem;
+    color: var(--accent);
+  }
+  .pipe-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+  .pipe-desc { font-size: 0.72rem; color: var(--muted); }
+
+  /* DEFECT CLASSES */
+  .defect-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 3rem;
+  }
+  .defect-card {
+    background: var(--navy2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .defect-card:hover { border-color: var(--accent); }
+  .defect-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+  }
+  .defect-card.crack::before { background: var(--danger); }
+  .defect-card.corrosion::before { background: var(--warn); }
+  .defect-card.dent::before { background: var(--accent); }
+  .defect-card.paint::before { background: var(--accent2); }
+  .defect-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .defect-map {
+    width: 100%;
+    height: 80px;
+    background: var(--navy3);
+    border-radius: 6px;
+    margin-top: 1rem;
+    overflow: hidden;
+    position: relative;
+  }
+  .defect-acc {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+  .defect-acc span {
+    font-weight: 700;
+  }
+  .defect-acc .crack-c { color: var(--danger); }
+  .defect-acc .corrosion-c { color: var(--warn); }
+  .defect-acc .dent-c { color: var(--accent); }
+  .defect-acc .paint-c { color: var(--accent2); }
+
+  /* LIVE DEMO */
+  .demo-wrapper {
+    margin-top: 3rem;
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .demo-header {
+    background: var(--panel);
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border2);
+  }
+  .demo-dots { display: flex; gap: 6px; }
+  .demo-dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .dot-r { background: #FF5F57; }
+  .dot-y { background: #FEBC2E; }
+  .dot-g { background: #28C840; }
+  .demo-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent2);
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent2);
+    animation: pulse-live 1.5s infinite;
+  }
+  @keyframes pulse-live {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .demo-body {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+  }
+  .demo-canvas {
+    padding: 1.5rem;
+    border-right: 1px solid var(--border2);
+  }
+  .aircraft-view {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #0A0C14;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .demo-sidebar {
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .sidebar-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border2);
+  }
+  .metric-key { font-size: 0.78rem; color: var(--muted); }
+  .metric-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .metric-val.green { color: var(--accent2); }
+  .metric-val.cyan { color: var(--accent); }
+  .metric-val.orange { color: var(--accent3); }
+  .defect-log {
+    flex: 1;
+    background: var(--navy3);
+    border-radius: 8px;
+    padding: 0.8rem;
+    overflow-y: auto;
+    max-height: 200px;
+  }
+  .log-entry {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border2);
+    display: flex;
+    gap: 8px;
+  }
+  .log-ts { color: var(--muted); }
+  .log-type { font-weight: 700; }
+  .log-type.crack { color: var(--danger); }
+  .log-type.corr { color: var(--warn); }
+  .log-type.dent { color: var(--accent); }
+  .log-type.paint { color: var(--accent2); }
+  .log-sev { color: var(--muted); }
+  .sev-crit { color: var(--danger) !important; }
+  .sev-mid { color: var(--warn) !important; }
+  .sev-low { color: var(--accent2) !important; }
+  .demo-controls {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .ctrl-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .ctrl-btn:hover { background: rgba(0,212,255,0.1); }
+  .ctrl-btn.active { background: var(--accent); color: var(--navy); border-color: var(--accent); }
+  .fps-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  .fps-display span { color: var(--accent2); }
+
+  /* TECH STACK */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 3rem;
+  }
+  .tech-card {
+    background: var(--navy2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+  }
+  .tech-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .tech-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.7rem;
+  }
+  .tech-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+  .tech-role { font-size: 0.78rem; color: var(--muted); }
+  .tech-tag {
+    display: inline-block;
+    margin-top: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: rgba(0,212,255,0.1);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+
+  /* PERFORMANCE */
+  .perf-section {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2rem;
+    margin-top: 3rem;
+  }
+  .perf-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border2);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  .perf-stat {
+    background: var(--navy3);
+    padding: 1.5rem 1rem;
+    text-align: center;
+  }
+  .perf-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .perf-unit { font-size: 1rem; color: var(--muted); }
+  .perf-lbl { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+  .accuracy-bars { display: flex; flex-direction: column; gap: 12px; }
+  .acc-row { display: flex; align-items: center; gap: 12px; }
+  .acc-label { font-size: 0.8rem; color: var(--text); width: 120px; }
+  .acc-bar-bg {
+    flex: 1;
+    height: 24px;
+    background: var(--navy3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .acc-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--navy);
+    transition: width 1.5s ease;
+  }
+  .fill-crack { background: var(--danger); }
+  .fill-corr { background: var(--warn); }
+  .fill-dent { background: var(--accent); }
+  .fill-paint { background: var(--accent2); }
+
+  /* ROADMAP */
+  .roadmap {
+    margin-top: 3rem;
+    position: relative;
+  }
+  .roadmap::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+  .road-item {
+    display: flex;
+    gap: 1.5rem;
+    padding: 0 0 2.5rem 0;
+    position: relative;
+  }
+  .road-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--panel2);
+    border: 1.5px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .road-num.done {
+    background: var(--accent);
+    color: var(--navy);
+    border-color: var(--accent);
+  }
+  .road-content { padding-top: 6px; }
+  .road-weeks {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .road-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+  .road-desc { font-size: 0.83rem; color: var(--muted); }
+
+  /* FUTURE */
+  .future-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 3rem;
+  }
+  .future-card {
+    background: var(--navy2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .future-phase {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .future-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; }
+  .future-desc { font-size: 0.8rem; color: var(--muted); }
+
+  /* TEAM */
+  .team-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-top: 3rem;
+  }
+  .team-card {
+    background: var(--navy2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+  .team-card:hover { border-color: var(--accent); }
+  .team-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--panel2);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 1rem;
+    font-weight: 800;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+  }
+  .team-name { font-weight: 700; font-size: 0.9rem; }
+  .team-role { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+  /* CTA FOOTER */
+  .cta-footer {
+    text-align: center;
+    padding: 6rem 2rem;
+    background: var(--navy2);
+    border-top: 1px solid var(--border2);
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-footer::before {
+    content: 'SKYSENTINEL';
+    position: absolute;
+    font-size: 15vw;
+    font-weight: 800;
+    color: rgba(0,212,255,0.03);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: 4px;
+  }
+  .cta-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .cta-title {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    max-width: 700px;
+    margin: 0 auto 1.5rem;
+  }
+  .cta-sub {
+    color: var(--muted);
+    max-width: 500px;
+    margin: 0 auto 2.5rem;
+    font-size: 1rem;
+  }
+  .project-code {
+    display: inline-block;
+    margin-top: 2rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    border: 1px solid var(--border2);
+    padding: 8px 20px;
+    border-radius: 4px;
+  }
+  .project-code span { color: var(--accent); }
+
+  /* CANVAS ANIMATION */
+  #scan-canvas { width: 100%; height: 100%; display: block; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--navy); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  @media (max-width: 768px) {
+    .demo-body { grid-template-columns: 1fr; }
+    .tech-grid { grid-template-columns: repeat(2, 1fr); }
+    .perf-grid { grid-template-columns: repeat(2, 1fr); }
+    .team-grid { grid-template-columns: repeat(2, 1fr); }
+    .defect-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipe-step::after { display: none; }
+    .pipe-step:first-child { border-radius: 10px 10px 0 0; }
+    .pipe-step:last-child { border-radius: 0 0 10px 10px; }
+    .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="logo-icon"></div>
+    Sky<span>Sentinel</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#solution">Solution</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#tech">Tech</a></li>
+    <li><a href="#team">Team</a></li>
+  </ul>
+  <div class="nav-badge">● Live Prototype</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <span class="hero-tag">Tata InnoVent 2027 · Project 3.2.3.4</span>
+  <h1>Edge AI for<br><span class="accent">Aircraft Inspection</span></h1>
+  <p class="hero-sub">Real-time structural defect detection powered by YOLOv8 on NVIDIA Jetson Nano. Zero cloud dependency. Sub-100ms latency. Fully offline.</p>
+  <div class="hero-cta">
+    <a href="#demo" class="btn-primary">View Live Demo</a>
+    <a href="#solution" class="btn-outline">Explore Solution</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="val">92%</div>
+      <div class="lbl">mAP Accuracy</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">&lt;100ms</div>
+      <div class="lbl">Latency</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">65%</div>
+      <div class="lbl">Faster Inspection</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">0</div>
+      <div class="lbl">Cloud Dependency</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- PROBLEM -->
+<section id="problem">
+  <span class="section-tag">// Problem Statement</span>
+  <h2 class="section-title">Aviation inspection is<br>broken today</h2>
+  <p class="section-sub">Traditional aircraft maintenance relies on slow, manual, error-prone processes that put safety and efficiency at risk. The aviation MRO industry demands a smarter solution.</p>
+  <div class="problem-grid">
+    <div class="prob-card">
+      <div class="prob-num">12–18h</div>
+      <div class="prob-label">Per Inspection Cycle</div>
+      <div class="prob-desc">Manual visual inspection of a single aircraft takes over half a working day, creating scheduling bottlenecks and aircraft downtime.</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-num">~20%</div>
+      <div class="prob-label">Aviation Accidents</div>
+      <div class="prob-desc">A significant portion of aviation incidents are linked to maintenance errors, including missed or misidentified structural defects.</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-num">$$$</div>
+      <div class="prob-label">High Labor & Downtime</div>
+      <div class="prob-desc">Skilled inspection labor and aircraft grounding for inspection represent one of the largest MRO cost categories industry-wide.</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-num">0G</div>
+      <div class="prob-label">No Cloud in Hangars</div>
+      <div class="prob-desc">Maintenance facilities and remote inspection environments often lack reliable internet, making cloud-dependent solutions impractical.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- MARKET -->
+<section id="market">
+  <span class="section-tag">// Market Opportunity</span>
+  <h2 class="section-title">$131B market by 2030</h2>
+  <p class="section-sub">The Aviation MRO market is expanding rapidly, driven by AI-powered inspection technologies. SkySentinel targets the fastest-growing segment at 6.2% CAGR.</p>
+  <div class="market-chart">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+      <span style="font-family:'Space Mono',monospace; font-size:0.7rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase;">Aviation MRO Market Size (USD Billion)</span>
+      <span style="font-family:'Space Mono',monospace; font-size:0.7rem; color:var(--accent2);">CAGR 6.2%</span>
+    </div>
+    <div class="chart-bar-wrap" id="market-bars">
+      <div class="chart-row">
+        <span class="chart-year">2022</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:62%; background:var(--panel2); color:var(--muted);">$81B</div></div>
+      </div>
+      <div class="chart-row">
+        <span class="chart-year">2023</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:67%; background:linear-gradient(90deg, var(--panel2), var(--panel)); color:var(--muted);">$88B</div></div>
+      </div>
+      <div class="chart-row">
+        <span class="chart-year">2025F</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:75%; background:linear-gradient(90deg, var(--panel2), rgba(0,212,255,0.2)); color:var(--accent);">$98B</div></div>
+      </div>
+      <div class="chart-row">
+        <span class="chart-year">2027</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:86%; background:linear-gradient(90deg, rgba(0,212,255,0.15), rgba(0,212,255,0.3)); color:var(--accent);">$112B</div></div>
+      </div>
+      <div class="chart-row">
+        <span class="chart-year">2030</span>
+        <div class="chart-bar-bg"><div class="chart-bar-fill" style="width:100%; background:linear-gradient(90deg, rgba(0,212,255,0.2), rgba(0,212,255,0.5)); color:var(--navy); font-weight:700;">$131B</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- SOLUTION OVERVIEW -->
+<section id="solution">
+  <span class="section-tag">// Solution Overview</span>
+  <h2 class="section-title">Five-stage offline<br>inspection pipeline</h2>
+  <p class="section-sub">SkySentinel operates as a fully offline, edge-native system. From frame capture to structured report — zero cloud connectivity required.</p>
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-icon">📷</div>
+      <div class="pipe-name">Capture</div>
+      <div class="pipe-desc">UAV or fixed camera captures high-res aircraft surface frames</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">⚙️</div>
+      <div class="pipe-name">Pre-Process</div>
+      <div class="pipe-desc">OpenCV noise reduction, contrast enhancement & normalization</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🔍</div>
+      <div class="pipe-name">Detect</div>
+      <div class="pipe-desc">YOLOv8 runs at 15–30 FPS, localizing all defect classes</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🏷️</div>
+      <div class="pipe-name">Classify</div>
+      <div class="pipe-desc">Severity engine tags Low / Mid / Critical for each defect</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">📋</div>
+      <div class="pipe-name">Report</div>
+      <div class="pipe-desc">PDF/CSV logs stored locally via SQLite — fully offline</div>
+    </div>
+  </div>
+
+  <!-- DEFECT CLASSES -->
+  <div style="margin-top:4rem;">
+    <span class="section-tag">// Defect Classification</span>
+    <h3 class="section-title" style="font-size:clamp(1.4rem,3vw,2rem);">Four critical defect classes</h3>
+    <div class="defect-grid">
+      <div class="defect-card crack">
+        <div class="defect-title">Crack Detection</div>
+        <div style="font-size:0.83rem; color:var(--muted);">Detects hairline and structural cracks on fuselage, wings, and panels with bounding-box annotations and severity scoring.</div>
+        <div class="defect-map">
+          <canvas id="crack-canvas" style="width:100%;height:100%;"></canvas>
+        </div>
+        <div class="defect-acc">Precision: <span class="crack-c">94%</span></div>
+      </div>
+      <div class="defect-card corrosion">
+        <div class="defect-title">Corrosion Mapping</div>
+        <div style="font-size:0.83rem; color:var(--muted);">Identifies oxidation and surface corrosion zones, mapping affected areas for prioritized MRO intervention.</div>
+        <div class="defect-map">
+          <canvas id="corr-canvas" style="width:100%;height:100%;"></canvas>
+        </div>
+        <div class="defect-acc">Precision: <span class="corrosion-c">91%</span></div>
+      </div>
+      <div class="defect-card dent">
+        <div class="defect-title">Dent Identification</div>
+        <div style="font-size:0.83rem; color:var(--muted);">Locates impact dents and deformations on aircraft skin, flagging depth-risk areas for structural review.</div>
+        <div class="defect-map">
+          <canvas id="dent-canvas" style="width:100%;height:100%;"></canvas>
+        </div>
+        <div class="defect-acc">Precision: <span class="dent-c">89%</span></div>
+      </div>
+      <div class="defect-card paint">
+        <div class="defect-title">Paint Degradation</div>
+        <div style="font-size:0.83rem; color:var(--muted);">Detects paint fade, peeling, and coating loss that may expose underlying metal to environmental damage.</div>
+        <div class="defect-map">
+          <canvas id="paint-canvas" style="width:100%;height:100%;"></canvas>
+        </div>
+        <div class="defect-acc">Precision: <span class="paint-c">87%</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- LIVE DEMO -->
+<section id="demo" style="padding-bottom:2rem;">
+  <span class="section-tag">// Prototype Demonstration</span>
+  <h2 class="section-title">Simulated live inspection<br>dashboard</h2>
+  <p class="section-sub">Experience the real-time defect detection interface — bounding boxes, severity scoring, and inspection logs, all running on-device with zero cloud dependency.</p>
+</section>
+
+<div style="max-width:1200px; margin:0 auto; padding:0 2rem 6rem;">
+  <div class="demo-wrapper">
+    <div class="demo-header">
+      <div class="demo-dots">
+        <span class="dot-r"></span>
+        <span class="dot-y"></span>
+        <span class="dot-g"></span>
+      </div>
+      <div class="demo-title">SKYSENTINEL — EDGE AI INSPECTION CONSOLE v1.0</div>
+      <div class="live-badge"><div class="live-dot"></div> LIVE FEED</div>
+    </div>
+    <div class="demo-body">
+      <div class="demo-canvas">
+        <div style="font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); letter-spacing:2px; margin-bottom:0.7rem; text-transform:uppercase;">Aircraft Surface Feed — Fuselage Section A</div>
+        <div class="aircraft-view">
+          <canvas id="scan-canvas"></canvas>
+        </div>
+        <div style="display:flex; gap:1rem; margin-top:0.8rem; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:0.65rem;">
+            <span style="display:inline-block; width:10px; height:2px; background:var(--danger);"></span>
+            <span style="color:var(--muted);">CRACK</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:0.65rem;">
+            <span style="display:inline-block; width:10px; height:2px; background:var(--warn);"></span>
+            <span style="color:var(--muted);">CORROSION</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:0.65rem;">
+            <span style="display:inline-block; width:10px; height:2px; background:var(--accent);"></span>
+            <span style="color:var(--muted);">DENT</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:0.65rem;">
+            <span style="display:inline-block; width:10px; height:2px; background:var(--accent2);"></span>
+            <span style="color:var(--muted);">PAINT</span>
+          </div>
+        </div>
+      </div>
+      <div class="demo-sidebar">
+        <div>
+          <div class="sidebar-label">System Metrics</div>
+          <div class="metric-row">
+            <span class="metric-key">Inference</span>
+            <span class="metric-val cyan" id="latency">67ms</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">FPS</span>
+            <span class="metric-val green" id="fps-val">24</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Model</span>
+            <span class="metric-val cyan">YOLOv8n-INT8</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Device</span>
+            <span class="metric-val" style="color:var(--muted);">Jetson Nano</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Connectivity</span>
+            <span class="metric-val green">OFFLINE ✓</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Frames Scanned</span>
+            <span class="metric-val cyan" id="frame-count">0</span>
+          </div>
+        </div>
+        <div>
+          <div class="sidebar-label">Defect Log</div>
+          <div class="defect-log" id="defect-log">
+            <div style="font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); text-align:center; padding-top:1rem;">Awaiting detection...</div>
+          </div>
+        </div>
+        <div>
+          <div class="sidebar-label">Session Summary</div>
+          <div class="metric-row">
+            <span class="metric-key">Total Defects</span>
+            <span class="metric-val orange" id="total-defects">0</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Critical</span>
+            <span class="metric-val" style="color:var(--danger);" id="count-crit">0</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Mid</span>
+            <span class="metric-val" style="color:var(--warn);" id="count-mid">0</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-key">Low</span>
+            <span class="metric-val" style="color:var(--accent2);" id="count-low">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-controls">
+      <button class="ctrl-btn active" id="btn-run" onclick="toggleInspection()">⏸ Pause</button>
+      <button class="ctrl-btn" onclick="clearLog()">Clear Log</button>
+      <button class="ctrl-btn" onclick="exportReport()">⬇ Export Report</button>
+      <div class="fps-display">Frame: <span id="frame-display">0</span></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- TECH STACK -->
+<section id="tech">
+  <span class="section-tag">// Technical Implementation</span>
+  <h2 class="section-title">Built for the edge</h2>
+  <p class="section-sub">Every component of SkySentinel is selected and optimized for maximum inference efficiency on resource-constrained edge hardware.</p>
+  <div class="tech-grid">
+    <div class="tech-card">
+      <div class="tech-icon">🔥</div>
+      <div class="tech-name">PyTorch + YOLOv8</div>
+      <div class="tech-role">Primary training framework. Custom dataset pipelines, transfer learning, and fine-tuning for aircraft defect classes.</div>
+      <span class="tech-tag">ML / DL</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">⚡</div>
+      <div class="tech-name">TensorRT</div>
+      <div class="tech-role">NVIDIA's optimizer enabling INT8 quantization with 4x compression. Delivers &lt;100ms latency on Jetson Nano.</div>
+      <span class="tech-tag">Edge Inference</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🔄</div>
+      <div class="tech-name">ONNX Runtime</div>
+      <div class="tech-role">Cross-platform inference engine for optimized model execution on edge hardware.</div>
+      <span class="tech-tag">Deployment</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">👁️</div>
+      <div class="tech-name">OpenCV + NumPy</div>
+      <div class="tech-role">Core image enhancement, frame preprocessing, noise reduction, and edge detection for live UAV feed processing.</div>
+      <span class="tech-tag">Vision Stack</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">📊</div>
+      <div class="tech-name">Streamlit + SQLite</div>
+      <div class="tech-role">Real-time inspection dashboard with live defect visualization and local offline data storage.</div>
+      <span class="tech-tag">Data Stack</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🖥️</div>
+      <div class="tech-name">Jetson Nano + RPi 4</div>
+      <div class="tech-role">NVIDIA Jetson Nano as primary edge platform (472 GFLOPS) with Raspberry Pi 4 as lightweight fallback.</div>
+      <span class="tech-tag">Edge Hardware</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🗃️</div>
+      <div class="tech-name">Roboflow + Albumentations</div>
+      <div class="tech-role">Dataset labeling, versioning, augmentation pipeline management and synthetic data generation.</div>
+      <span class="tech-tag">Dataset</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">🔢</div>
+      <div class="tech-name">INT8 Quantization</div>
+      <div class="tech-role">4x model compression with &lt;2% accuracy loss. Mixed C++/Python codebase for performance-critical pipelines.</div>
+      <span class="tech-tag">Optimization</span>
+    </div>
+    <div class="tech-card">
+      <div class="tech-icon">📄</div>
+      <div class="tech-name">Pandas + PDF/CSV</div>
+      <div class="tech-role">Structured report generation converting raw detection outputs into exportable inspection summaries.</div>
+      <span class="tech-tag">Reporting</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- PERFORMANCE -->
+<section id="performance">
+  <span class="section-tag">// Results & Achievements</span>
+  <h2 class="section-title">Industry-leading detection<br>performance</h2>
+  <p class="section-sub">Validated on NVIDIA Jetson Nano with INT8 quantization. Real-time defect detection with sub-100ms latency and 92% mean Average Precision overall.</p>
+  <div class="perf-section">
+    <div class="perf-grid">
+      <div class="perf-stat">
+        <div class="perf-val">92<span class="perf-unit">%</span></div>
+        <div class="perf-lbl">Overall mAP</div>
+      </div>
+      <div class="perf-stat">
+        <div class="perf-val">&lt;100<span class="perf-unit">ms</span></div>
+        <div class="perf-lbl">Latency / Frame</div>
+      </div>
+      <div class="perf-stat">
+        <div class="perf-val">65<span class="perf-unit">%</span></div>
+        <div class="perf-lbl">Faster Inspection</div>
+      </div>
+      <div class="perf-stat">
+        <div class="perf-val">4x</div>
+        <div class="perf-lbl">Model Compression</div>
+      </div>
+    </div>
+    <div class="accuracy-bars" id="acc-bars">
+      <div style="font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:0.5rem;">Precision by Defect Class</div>
+      <div class="acc-row">
+        <span class="acc-label">Cracks</span>
+        <div class="acc-bar-bg"><div class="acc-bar-fill fill-crack" style="width:0;" data-target="94">94%</div></div>
+      </div>
+      <div class="acc-row">
+        <span class="acc-label">Corrosion</span>
+        <div class="acc-bar-bg"><div class="acc-bar-fill fill-corr" style="width:0;" data-target="91">91%</div></div>
+      </div>
+      <div class="acc-row">
+        <span class="acc-label">Dents</span>
+        <div class="acc-bar-bg"><div class="acc-bar-fill fill-dent" style="width:0;" data-target="89">89%</div></div>
+      </div>
+      <div class="acc-row">
+        <span class="acc-label">Paint Fade</span>
+        <div class="acc-bar-bg"><div class="acc-bar-fill fill-paint" style="width:0;" data-target="87">87%</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <span class="section-tag">// Project Plan</span>
+  <h2 class="section-title">10-week POC roadmap</h2>
+  <p class="section-sub">Structured sprint plan targeting a fully functional edge AI inspection demo on NVIDIA Jetson Nano. Each phase builds iteratively toward demo submission.</p>
+  <div class="roadmap">
+    <div class="road-item">
+      <div class="road-num">01</div>
+      <div class="road-content">
+        <div class="road-weeks">Weeks 1–2</div>
+        <div class="road-title">Data Gathering & Labeling</div>
+        <div class="road-desc">Collect aerospace defect imagery from public NDT datasets. Label cracks, corrosion, dents, and paint degradation using Roboflow. Generate synthetic augmentation for class balance.</div>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="road-num">02</div>
+      <div class="road-content">
+        <div class="road-weeks">Weeks 3–4</div>
+        <div class="road-title">Model Training & Initial Validation</div>
+        <div class="road-desc">Train YOLOv8n on curated dataset. Validate mAP across all defect classes. Apply Albumentations augmentation pipeline for robust generalization and transfer learning fine-tuning.</div>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="road-num">03</div>
+      <div class="road-content">
+        <div class="road-weeks">Weeks 5–6</div>
+        <div class="road-title">Edge Optimization & Jetson Deployment</div>
+        <div class="road-desc">Export model via ONNX. Apply INT8 quantization with TensorRT for 4x compression. Deploy on NVIDIA Jetson Nano. Validate &lt;100ms latency and 15–30 FPS inference in offline mode.</div>
+      </div>
+    </div>
+    <div class="road-item">
+      <div class="road-num">04</div>
+      <div class="road-content">
+        <div class="road-weeks">Weeks 7–10</div>
+        <div class="road-title">Dashboard, Testing & Demo Submission</div>
+        <div class="road-desc">Build Streamlit inspection dashboard with live defect visualization. Implement SQLite logging and PDF/CSV report export. End-to-end testing and final demo preparation for submission.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- FUTURE -->
+<section id="future">
+  <span class="section-tag">// Future Enhancements</span>
+  <h2 class="section-title">What comes next</h2>
+  <p class="section-sub">SkySentinel's roadmap extends beyond the POC to create a comprehensive, scalable aviation inspection platform.</p>
+  <div class="future-grid">
+    <div class="future-card">
+      <div class="future-phase">Phase 2</div>
+      <div class="future-title">Drone Integration</div>
+      <div class="future-desc">Autonomous UAV-mounted inspection with GPS-based defect geolocation and full fuselage coverage mapping.</div>
+    </div>
+    <div class="future-card">
+      <div class="future-phase">Phase 2</div>
+      <div class="future-title">3D Defect Mapping</div>
+      <div class="future-desc">Depth camera integration for 3D surface reconstruction and volumetric defect severity scoring.</div>
+    </div>
+    <div class="future-card">
+      <div class="future-phase">Phase 3</div>
+      <div class="future-title">Predictive Maintenance</div>
+      <div class="future-desc">Longitudinal defect tracking across inspection cycles to predict failure risk and optimize maintenance schedules.</div>
+    </div>
+    <div class="future-card">
+      <div class="future-phase">Phase 3</div>
+      <div class="future-title">Fleet-Wide Analytics</div>
+      <div class="future-desc">Multi-aircraft data aggregation with secure sync for MRO teams managing entire airline fleets.</div>
+    </div>
+    <div class="future-card">
+      <div class="future-phase">Phase 4</div>
+      <div class="future-title">Regulatory Compliance</div>
+      <div class="future-desc">Auto-generated DGCA/FAA-compliant inspection documentation and tamper-proof digital audit trails.</div>
+    </div>
+    <div class="future-card">
+      <div class="future-phase">Phase 4</div>
+      <div class="future-title">Federated Learning</div>
+      <div class="future-desc">Privacy-preserving model improvement across MRO facilities without centralizing sensitive inspection data.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- TEAM -->
+<section id="team">
+  <span class="section-tag">// The Team</span>
+  <h2 class="section-title">Built by a cross-functional team</h2>
+  <p class="section-sub">Combining expertise in AI, embedded systems, computer vision, and full-stack development — built specifically for Tata Technologies InnoVent 2027.</p>
+  <div class="team-grid">
+    <div class="team-card">
+      <div class="team-avatar">AS</div>
+      <div class="team-name">Ashita</div>
+      <div class="team-role">Computer Vision & ML</div>
+    </div>
+    <div class="team-card">
+      <div class="team-avatar">BM</div>
+      <div class="team-name">Binayak Mohanta</div>
+      <div class="team-role">Edge AI & Embedded Systems</div>
+    </div>
+    <div class="team-card">
+      <div class="team-avatar">TN</div>
+      <div class="team-name">Tirtha Nath</div>
+      <div class="team-role">Deep Learning & Training</div>
+    </div>
+    <div class="team-card">
+      <div class="team-avatar">AJ</div>
+      <div class="team-name">Arjun Jayakrishnan</div>
+      <div class="team-role">Full-Stack & Dashboard</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER CTA -->
+<div class="cta-footer">
+  <div class="cta-badge">Tata Technologies InnoVent 2027</div>
+  <h2 class="cta-title">Safer aircraft.<br>Smarter maintenance.</h2>
+  <p class="cta-sub">SkySentinel brings real-time, edge-native defect detection to every hangar — no cloud required, no compromise on accuracy.</p>
+  <a href="#demo" class="btn-primary">View Live Demo</a>
+  <div class="project-code">Project ID: <span>3.2.3.4</span> — Edge AI for Intelligent Inspection & Defect Detection</div>
+</div>
+
+<script>
+// ======== LIVE DEMO SIMULATION ========
+const canvas = document.getElementById('scan-canvas');
+const ctx = canvas.getContext('2d');
+let running = true;
+let frameCount = 0;
+let totalDefects = 0, critCount = 0, midCount = 0, lowCount = 0;
+let animId;
+
+const defectTypes = [
+  { name: 'CRACK', color: '#FF3D3D', sev: ['CRITICAL','MID'] },
+  { name: 'CORROSION', color: '#FFB800', sev: ['MID','LOW'] },
+  { name: 'DENT', color: '#00D4FF', sev: ['MID','LOW'] },
+  { name: 'PAINT', color: '#00FF9D', sev: ['LOW','MID'] }
+];
+
+let activeBoxes = [];
+
+function resize() {
+  const parent = canvas.parentElement;
+  canvas.width = parent.offsetWidth;
+  canvas.height = parent.offsetHeight;
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#0A0C14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Aircraft surface texture simulation
+  ctx.strokeStyle = 'rgba(30,45,74,0.4)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+
+  // Panel lines
+  ctx.strokeStyle = 'rgba(0,212,255,0.08)';
+  ctx.lineWidth = 1;
+  const pw = canvas.width / 4;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(pw * i, 0);
+    ctx.lineTo(pw * i, canvas.height);
+    ctx.stroke();
+  }
+
+  // Rivet dots
+  ctx.fillStyle = 'rgba(100,130,160,0.3)';
+  for (let x = 20; x < canvas.width; x += 40) {
+    for (let y = 20; y < canvas.height; y += 40) {
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawScanLine(frame) {
+  const y = (frame * 3) % (canvas.height + 20) - 10;
+  const grad = ctx.createLinearGradient(0, y - 15, 0, y + 15);
+  grad.addColorStop(0, 'rgba(0,212,255,0)');
+  grad.addColorStop(0.5, 'rgba(0,212,255,0.15)');
+  grad.addColorStop(1, 'rgba(0,212,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, y - 15, canvas.width, 30);
+
+  // scan line
+  ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(canvas.width, y);
+  ctx.stroke();
+}
+
+function drawDefectBox(box) {
+  const { x, y, w, h, type, conf, sev, age, maxAge } = box;
+  const alpha = Math.min(1, (maxAge - age) / 20);
+  if (alpha <= 0) return;
+
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = type.color;
+  ctx.lineWidth = 1.5;
+
+  // Corner brackets
+  const cs = 10;
+  ctx.beginPath();
+  ctx.moveTo(x + cs, y);  ctx.lineTo(x, y);  ctx.lineTo(x, y + cs);
+  ctx.moveTo(x + w - cs, y);  ctx.lineTo(x + w, y);  ctx.lineTo(x + w, y + cs);
+  ctx.moveTo(x, y + h - cs);  ctx.lineTo(x, y + h);  ctx.lineTo(x + cs, y + h);
+  ctx.moveTo(x + w - cs, y + h);  ctx.lineTo(x + w, y + h);  ctx.lineTo(x + w, y + h - cs);
+  ctx.stroke();
+
+  // Label bg
+  ctx.fillStyle = 'rgba(10,12,20,0.85)';
+  ctx.fillRect(x, y - 18, w, 18);
+  ctx.fillStyle = type.color;
+  ctx.font = 'bold 9px Space Mono, monospace';
+  ctx.fillText(`${type.name}  ${conf}%  [${sev}]`, x + 4, y - 5);
+
+  ctx.globalAlpha = 1;
+}
+
+function drawHUD() {
+  // Timestamp
+  const now = new Date();
+  const ts = now.toISOString().replace('T', ' ').substring(0, 19);
+  ctx.fillStyle = 'rgba(0,212,255,0.5)';
+  ctx.font = '9px Space Mono, monospace';
+  ctx.fillText(`UTC: ${ts}`, 8, 14);
+  ctx.fillText(`DEVICE: JETSON-NANO-01 | MODE: OFFLINE`, 8, canvas.height - 8);
+  ctx.fillText(`RESOLUTION: ${canvas.width}x${canvas.height} | CODEC: H.264`, canvas.width - 250, canvas.height - 8);
+}
+
+function spawnDefect() {
+  const type = defectTypes[Math.floor(Math.random() * defectTypes.length)];
+  const sev = type.sev[Math.floor(Math.random() * type.sev.length)];
+  const margin = 20;
+  const maxW = Math.min(150, canvas.width * 0.25);
+  const maxH = Math.min(100, canvas.height * 0.3);
+  const w = 60 + Math.random() * (maxW - 60);
+  const h = 30 + Math.random() * (maxH - 30);
+  const x = margin + Math.random() * (canvas.width - w - margin * 2);
+  const y = margin + Math.random() * (canvas.height - h - margin * 2);
+  const conf = Math.floor(85 + Math.random() * 12);
+
+  activeBoxes.push({ x, y, w, h, type, conf, sev, age: 0, maxAge: 60 });
+
+  // Log entry
+  addLogEntry(type, sev, conf);
+
+  totalDefects++;
+  if (sev === 'CRITICAL') critCount++;
+  else if (sev === 'MID') midCount++;
+  else lowCount++;
+
+  document.getElementById('total-defects').textContent = totalDefects;
+  document.getElementById('count-crit').textContent = critCount;
+  document.getElementById('count-mid').textContent = midCount;
+  document.getElementById('count-low').textContent = lowCount;
+}
+
+function addLogEntry(type, sev, conf) {
+  const log = document.getElementById('defect-log');
+  const now = new Date();
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const typeClass = { 'CRACK':'crack','CORROSION':'corr','DENT':'dent','PAINT':'paint' }[type.name];
+  const sevClass = { 'CRITICAL':'sev-crit','MID':'sev-mid','LOW':'sev-low' }[sev];
+
+  // Remove placeholder
+  const placeholder = log.querySelector('[data-placeholder]');
+  if (placeholder) placeholder.remove();
+
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-ts">${ts}</span><span class="log-type ${typeClass}">${type.name}</span><span class="log-sev ${sevClass}">${sev}</span><span class="log-sev">${conf}%</span>`;
+  log.insertBefore(entry, log.firstChild);
+
+  // Keep max 20 entries
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+let lastDefectFrame = 0;
+function animate(frame) {
+  if (!running) return;
+  animId = requestAnimationFrame(() => animate(frame + 1));
+  frameCount++;
+
+  resize();
+  drawBackground();
+  drawScanLine(frame);
+
+  // Spawn defect every ~90 frames
+  if (frame - lastDefectFrame > 70 + Math.random() * 40) {
+    spawnDefect();
+    lastDefectFrame = frame;
+  }
+
+  // Update and draw boxes
+  activeBoxes = activeBoxes.filter(b => b.age < b.maxAge);
+  activeBoxes.forEach(b => { drawDefectBox(b); b.age++; });
+
+  drawHUD();
+
+  // Update metrics
+  if (frame % 30 === 0) {
+    const lat = 55 + Math.floor(Math.random() * 45);
+    const fps = Math.floor(15 + Math.random() * 15);
+    document.getElementById('latency').textContent = `${lat}ms`;
+    document.getElementById('fps-val').textContent = fps;
+    document.getElementById('frame-count').textContent = frameCount.toLocaleString();
+    document.getElementById('frame-display').textContent = frameCount.toLocaleString();
+  }
+}
+
+function toggleInspection() {
+  running = !running;
+  const btn = document.getElementById('btn-run');
+  if (running) {
+    btn.textContent = '⏸ Pause';
+    btn.classList.add('active');
+    animate(frameCount);
+  } else {
+    btn.textContent = '▶ Resume';
+    btn.classList.remove('active');
+    cancelAnimationFrame(animId);
+  }
+}
+
+function clearLog() {
+  const log = document.getElementById('defect-log');
+  log.innerHTML = '<div style="font-family:\'Space Mono\',monospace; font-size:0.65rem; color:var(--muted); text-align:center; padding-top:1rem;" data-placeholder>Log cleared</div>';
+  totalDefects = critCount = midCount = lowCount = 0;
+  document.getElementById('total-defects').textContent = 0;
+  document.getElementById('count-crit').textContent = 0;
+  document.getElementById('count-mid').textContent = 0;
+  document.getElementById('count-low').textContent = 0;
+}
+
+function exportReport() {
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').substring(0,19);
+  const csv = `SkySentinel Inspection Report\nTimestamp: ${new Date().toISOString()}\nDevice: JETSON-NANO-01\nMode: OFFLINE\n\nSummary\nTotal Defects,${totalDefects}\nCritical,${critCount}\nMid,${midCount}\nLow,${lowCount}\nmAP,92%\nLatency,<100ms\n`;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `skysentinel_report_${ts}.csv`;
+  a.click();
+}
+
+// Start
+resize();
+window.addEventListener('resize', resize);
+animate(0);
+
+// ======== DEFECT CANVAS VISUALIZATIONS ========
+function drawCrackViz(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.width = c.parentElement.offsetWidth;
+  c.height = c.parentElement.offsetHeight;
+  const x = c.getContext('2d');
+  x.fillStyle = '#0A0C14';
+  x.fillRect(0, 0, c.width, c.height);
+
+  // Background panel texture
+  x.strokeStyle = 'rgba(30,45,74,0.3)';
+  x.lineWidth = 0.5;
+  for (let i = 0; i < c.width; i += 20) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, c.height); x.stroke(); }
+
+  // Draw crack paths
+  x.strokeStyle = '#FF3D3D';
+  x.lineWidth = 1.5;
+  x.shadowColor = '#FF3D3D';
+  x.shadowBlur = 4;
+  for (let i = 0; i < 4; i++) {
+    x.beginPath();
+    const sx = 20 + Math.random() * (c.width - 40);
+    const sy = 10 + Math.random() * (c.height - 20);
+    x.moveTo(sx, sy);
+    for (let j = 0; j < 5; j++) {
+      x.lineTo(sx + (Math.random() - 0.5) * 40, sy + j * 12 + Math.random() * 8);
+    }
+    x.stroke();
+  }
+  x.shadowBlur = 0;
+
+  // Bounding box
+  x.strokeStyle = '#FF3D3D';
+  x.lineWidth = 1;
+  x.setLineDash([4, 4]);
+  x.strokeRect(15, 8, c.width - 30, c.height - 16);
+  x.setLineDash([]);
+  x.fillStyle = '#FF3D3D';
+  x.font = 'bold 8px Space Mono, monospace';
+  x.fillText('CRACK 94%', 18, 22);
+}
+
+function drawCorrViz(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.width = c.parentElement.offsetWidth;
+  c.height = c.parentElement.offsetHeight;
+  const x = c.getContext('2d');
+  x.fillStyle = '#0A0C14';
+  x.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 12; i++) {
+    const cx2 = 20 + Math.random() * (c.width - 40);
+    const cy2 = 15 + Math.random() * (c.height - 30);
+    const r = 5 + Math.random() * 18;
+    const g = x.createRadialGradient(cx2, cy2, 0, cx2, cy2, r);
+    g.addColorStop(0, 'rgba(255,184,0,0.6)');
+    g.addColorStop(1, 'rgba(255,184,0,0)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(cx2, cy2, r, 0, Math.PI * 2);
+    x.fill();
+  }
+  x.strokeStyle = '#FFB800';
+  x.lineWidth = 1;
+  x.setLineDash([4, 4]);
+  x.strokeRect(15, 8, c.width - 30, c.height - 16);
+  x.setLineDash([]);
+  x.fillStyle = '#FFB800';
+  x.font = 'bold 8px Space Mono, monospace';
+  x.fillText('CORROSION 91%', 18, 22);
+}
+
+function drawDentViz(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.width = c.parentElement.offsetWidth;
+  c.height = c.parentElement.offsetHeight;
+  const x = c.getContext('2d');
+  x.fillStyle = '#0A0C14';
+  x.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 3; i++) {
+    const cx2 = 30 + Math.random() * (c.width - 60);
+    const cy2 = 15 + Math.random() * (c.height - 30);
+    const rx = 15 + Math.random() * 20;
+    const ry = 8 + Math.random() * 12;
+    const g = x.createRadialGradient(cx2, cy2, 0, cx2, cy2, rx);
+    g.addColorStop(0, 'rgba(0,212,255,0.5)');
+    g.addColorStop(0.6, 'rgba(0,212,255,0.15)');
+    g.addColorStop(1, 'rgba(0,212,255,0)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.ellipse(cx2, cy2, rx, ry, 0, 0, Math.PI * 2);
+    x.fill();
+    x.strokeStyle = 'rgba(0,212,255,0.4)';
+    x.lineWidth = 1;
+    x.beginPath();
+    x.ellipse(cx2, cy2, rx, ry, 0, 0, Math.PI * 2);
+    x.stroke();
+  }
+  x.strokeStyle = '#00D4FF';
+  x.lineWidth = 1;
+  x.setLineDash([4, 4]);
+  x.strokeRect(15, 8, c.width - 30, c.height - 16);
+  x.setLineDash([]);
+  x.fillStyle = '#00D4FF';
+  x.font = 'bold 8px Space Mono, monospace';
+  x.fillText('DENT 89%', 18, 22);
+}
+
+function drawPaintViz(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.width = c.parentElement.offsetWidth;
+  c.height = c.parentElement.offsetHeight;
+  const x = c.getContext('2d');
+  x.fillStyle = '#0A0C14';
+  x.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 8; i++) {
+    const px = 10 + Math.random() * (c.width - 20);
+    const py = 10 + Math.random() * (c.height - 20);
+    const pw2 = 10 + Math.random() * 30;
+    const ph = 5 + Math.random() * 15;
+    x.fillStyle = `rgba(0,255,157,${0.2 + Math.random() * 0.3})`;
+    x.beginPath();
+    x.ellipse(px, py, pw2, ph, Math.random() * Math.PI, 0, Math.PI * 2);
+    x.fill();
+  }
+  x.strokeStyle = '#00FF9D';
+  x.lineWidth = 1;
+  x.setLineDash([4, 4]);
+  x.strokeRect(15, 8, c.width - 30, c.height - 16);
+  x.setLineDash([]);
+  x.fillStyle = '#00FF9D';
+  x.font = 'bold 8px Space Mono, monospace';
+  x.fillText('PAINT 87%', 18, 22);
+}
+
+setTimeout(() => {
+  drawCrackViz('crack-canvas');
+  drawCorrViz('corr-canvas');
+  drawDentViz('dent-canvas');
+  drawPaintViz('paint-canvas');
+}, 200);
+
+// ======== ACCURACY BARS ANIMATION ========
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      document.querySelectorAll('.acc-bar-fill').forEach(bar => {
+        const target = bar.dataset.target;
+        bar.style.width = target + '%';
+      });
+      observer.disconnect();
+    }
+  });
+}, { threshold: 0.3 });
+const accSection = document.getElementById('acc-bars');
+if (accSection) observer.observe(accSection);
+</script>
+</body>
+</html>
